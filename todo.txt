@@ -1,13 +1,18 @@
 cross validation
 use Stacked Cross-Validation for testing appropriate data length
-power curve
-wind speed ^3
-remove features that are correlated, pca?
+remove features that are correlated or pca?
 sensitivity analysis: prediction length, number of features, 
 more metrics in plots
 outlier detection, maybe too aggressive
 
 
+
 questions:
-power curve, above maximum value, output 0?
-first column is wind speed at what height?
+is it reasonable
+rnn slow
+conv before or after rnn
+
+hints for nn architecture
+
+mae loss
+use all cases
