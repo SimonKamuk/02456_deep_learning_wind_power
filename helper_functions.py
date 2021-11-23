@@ -15,8 +15,11 @@ import datetime
 
 
 def accuracy_rate(P_P, P_M, Cap):
-    n=96
-    return (1 - np.sqrt(np.sum(np.power(P_M-P_P, 2))) / (Cap * np.sqrt(n)))
+    return (1 - torch.sqrt(torch.sum(torch.pow(P_M-P_P, 2))) / (Cap * np.sqrt(len(P_P))))
+
+
+def quantile_score(y, y_pred, q):
+    return torch.mean(torch.max(q * (y-y_pred), (1-q) * (y_pred-y)))
 
 
 def load_data(case):
@@ -111,19 +114,42 @@ def get_k_fold_cv_idx(k, good_idx, k_fold_size):
     return valid_idx, train_idx
 
 
-def get_x_sequences_flattened(idx, x_stacked, idx_offset, pred_seq_len, x):
+def get_x_sequences_ffnn(idx, x_stacked, idx_offset, pred_seq_len, x):
     for i in range(len(idx)):
         x_stacked[i, :] = x[idx[i]+idx_offset-pred_seq_len+1:idx[i]+idx_offset+1, :].view(-1)
     return x_stacked
 
 
-def get_x_sequences_3d(idx, x_stacked, idx_offset, pred_seq_len, x):
+def get_x_sequences_cnn(idx, x_stacked, idx_offset, pred_seq_len, x):
     for i in range(len(idx)):
         x_stacked[i, :, :] = x[idx[i]+idx_offset-pred_seq_len+1:idx[i]+idx_offset+1, :].transpose(0, 1)
     return x_stacked
 
+def get_x_sequences_rnn(idx, x_stacked, idx_offset, pred_seq_len, x):
+    for i in range(len(idx)):
+        x_stacked[i, :, :] = x[idx[i]+idx_offset-pred_seq_len+1:idx[i]+idx_offset+1, :]
+    return x_stacked
 
-def train(x_batch, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, x_sequences_fun, idx_offset, pred_seq_len, loss, valid_metrics):
+def allocate_x_batch_ffnn(batch_size, input_size, pred_seq_len):
+    return torch.zeros(batch_size, input_size)
+
+def allocate_x_batch_rnn(batch_size, input_size, pred_seq_len):
+    return torch.zeros(batch_size, pred_seq_len, input_size)
+
+def allocate_x_batch_cnn(batch_size, input_size, pred_seq_len):
+    return torch.zeros(batch_size, input_size, pred_seq_len)
+
+def train(nn_type, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, valid_metrics):
+    if nn_type.lower() == 'rnn':
+        x_batch = allocate_x_batch_rnn(batch_size, x.shape[1], pred_seq_len)
+        x_sequences_fun = get_x_sequences_rnn
+    elif nn_type.lower() == 'ffnn':
+        x_batch = allocate_x_batch_ffnn(batch_size, x.shape[1]*pred_seq_len, None)
+        x_sequences_fun = get_x_sequences_ffnn
+    elif nn_type.lower() == 'cnn':
+        x_batch = allocate_x_batch_cnn(batch_size, x.shape[1], pred_seq_len)
+        x_sequences_fun = get_x_sequences_cnn
+    
     optimizer = optim.Adam(net.parameters())
     fold = 0
     valid_idx, train_idx = get_k_fold_cv_idx(fold, good_idx, k_fold_size)
@@ -158,7 +184,7 @@ def train(x_batch, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, x_s
             optimizer.step()
             
             cur_loss += batch_loss   
-        train_loss[epoch] = np.sqrt(cur_loss.detach().numpy() / num_batches_train)
+        train_loss[epoch] = cur_loss.detach().numpy() / num_batches_train
     
         ## Validation
         net.eval()
@@ -170,15 +196,15 @@ def train(x_batch, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, x_s
             output = net(x_batch)
             
             for metric in range(num_metrics):
-                cur_loss[metric] += valid_metrics[metric](output, y[valid_idx[slce]])
+                cur_loss[metric] += valid_metrics[metric](output.detach(), y[valid_idx[slce]].detach())
             
         for metric in range(num_metrics):
-            valid_loss[metric, epoch] = np.sqrt(cur_loss[metric] / num_batches_valid)
+            valid_loss[metric, epoch] = cur_loss[metric] / num_batches_valid
     
     
         
         if epoch % (num_epochs//10) == 0:
-            print(f'Epoch {epoch:2d} : Training loss: {train_loss[epoch]:.4f}, Validation:', *[f'{valid_metrics[i]._get_name()} {valid_loss[i, epoch]:.4f}' for i in range(num_metrics)])
+            print(f'Epoch {epoch:2d} : Training loss: {train_loss[epoch]:.4f}, \nValidation metrics:', *[f'\n{valid_metrics[i].__name__} {valid_loss[i, epoch]:.4f}' for i in range(num_metrics)], '\n')
             
     return train_loss, valid_loss
 
@@ -190,8 +216,8 @@ def get_all_accuracy_rates(net, x, y, y_time, x_batch, x_sequences_fun, good_idx
         if y_time[idx].time() == datetime.time(0,0):
             x_batch = x_sequences_fun(range(idx, idx+96), x_batch, idx_offset, pred_seq_len, x)
             net.eval()
-            P_P = y[idx:idx+96].detach().numpy() * capacity(case)
-            P_M = net(x_batch).detach().numpy() * capacity(case)
+            P_P = y[idx:idx+96].detach() * capacity(case)
+            P_M = net(x_batch).detach() * capacity(case)
             
             ac = accuracy_rate(P_P, P_M, capacity(case))
             if not np.isnan(ac):
@@ -199,6 +225,8 @@ def get_all_accuracy_rates(net, x, y, y_time, x_batch, x_sequences_fun, good_idx
                 times.append(y_time[idx])
     
     return accuracies, times
+
+
             
             
             
