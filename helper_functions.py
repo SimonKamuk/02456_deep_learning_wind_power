@@ -69,7 +69,7 @@ def capacity(case):
 
 def get_good_idx(x,y,idx_offset,pred_seq_len):
     good_idx = []
-    for i in range(y.shape[0]):
+    for i in range(max(0,-idx_offset+pred_seq_len-1), y.shape[0]):
         if not (torch.isnan(y[i]) or torch.any(torch.isnan(x[i+idx_offset-pred_seq_len+1:i+idx_offset+1]))):
             good_idx.append(i)
     good_idx = np.array(good_idx)
@@ -212,7 +212,7 @@ def train(nn_type, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, idx
 def get_all_accuracy_rates(net, x, y, y_time, x_batch, x_sequences_fun, good_idx, idx_offset, pred_seq_len, case):
     accuracies = []
     times = []
-    for idx in range(len(y_time)-96):
+    for idx in range(max(0,-idx_offset+pred_seq_len-1), len(y_time)-96):
         if y_time[idx].time() == datetime.time(0,0):
             x_batch = x_sequences_fun(range(idx, idx+96), x_batch, idx_offset, pred_seq_len, x)
             net.eval()
@@ -227,7 +227,38 @@ def get_all_accuracy_rates(net, x, y, y_time, x_batch, x_sequences_fun, good_idx
     return accuracies, times
 
 
-            
-            
-            
+def load_competition_data(day, case):
+    data_loc = '/Users/simon/Documents/DTU/9. semester/deep learning/data'
+    
+    file = os.path.join(data_loc,'competition','modified',f'Competition_case_{case}_day_{day}.csv')
+
+    df = pd.read_csv(file)
+    df.name = f'competition_day_{day}_case_{case}'
+        
+    for col_name in df.columns:
+        if col_name != 'Date_Time':
+            df[col_name]=df[col_name].astype('float64')
+        else:
+            df['Date_Time'] = pd.to_datetime(df['Date_Time'])
+        
+    
+    x = torch.Tensor(df.iloc[:,1:].values)
+    x_time = df['Date_Time']
+    
+    # make sure all time differences are equal
+    assert x_time.diff().min()==x_time.diff().max()
+    
+    return x,x_time
+
+
+def get_competition_preds(day,case,get_x_sequences,allocate_x_batch,input_size,pred_seq_len,net,save):
+    data_loc = '/Users/simon/Documents/DTU/9. semester/deep learning/data'
+    file = os.path.join(data_loc,'competition','predictions',f'Competition_case_{case}_day_{day}_predictions.csv')
+    x_comp,x_comp_time = load_competition_data(day, case)
+    comp_pred_idx = list(range(x_comp.shape[0]-96,x_comp.shape[0]))
+    x_batch = allocate_x_batch(len(comp_pred_idx), input_size, pred_seq_len)
+    predictions = net(get_x_sequences(comp_pred_idx, x_batch, 0, pred_seq_len, x_comp)).detach().numpy()
+    if save:
+        np.savetxt(file,predictions)
+    return predictions
             
