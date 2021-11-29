@@ -14,6 +14,7 @@ import torch.optim as optim
 import datetime
 import torch.nn as nn
 
+data_loc = '/Users/simon/Documents/DTU/9. semester/deep learning/data'
 
 def accuracy_rate(P_P, P_M, Cap):
     return (1 - torch.sqrt(torch.sum(torch.pow(P_M-P_P, 2))) / (Cap * np.sqrt(len(P_P))))
@@ -24,7 +25,6 @@ def quantile_score(y, y_pred, q):
 
 
 def load_data(case):
-    data_loc = '/Users/simon/Documents/DTU/9. semester/deep learning/data'
 
     df_all = []
     
@@ -32,7 +32,7 @@ def load_data(case):
     for file in sorted(files):
         path = os.path.join(data_loc,'modified data',file)
         name, ext = os.path.splitext(file)
-        if ext != '.csv':
+        if ext != '.csv' or name[0]=='.':
             continue
         df = pd.read_csv(path)
         df.name = name
@@ -117,7 +117,7 @@ def get_k_fold_cv_idx(k, good_idx, k_fold_size):
 
 def get_x_sequences_ffnn(idx, x_stacked, idx_offset, pred_seq_len, x):
     for i in range(len(idx)):
-        x_stacked[i, :] = x[idx[i]+idx_offset-pred_seq_len+1:idx[i]+idx_offset+1, :].view(-1)
+        x_stacked[i, :] = x[idx[i]+idx_offset-pred_seq_len+1:idx[i]+idx_offset+1, :].reshape(-1)
     return x_stacked
 
 
@@ -229,7 +229,7 @@ def train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_
         print(f'Fold {fold}: Training loss: {train_loss[epoch, fold]:.4f}, \nValidation metrics:', *[f'\n{valid_metrics[i].__name__} {valid_loss[i, epoch, fold]:.4f}' for i in range(num_metrics)], '\n')
         
         
-    return train_loss, valid_loss
+    return train_loss, valid_loss, net
 
 
 def get_all_accuracy_rates(net, x, y, y_time, x_batch, x_sequences_fun, good_idx, idx_offset, pred_seq_len, case):
@@ -251,7 +251,6 @@ def get_all_accuracy_rates(net, x, y, y_time, x_batch, x_sequences_fun, good_idx
 
 
 def load_competition_data(day, case):
-    data_loc = '/Users/simon/Documents/DTU/9. semester/deep learning/data'
     
     file = os.path.join(data_loc,'competition','modified',f'Competition_case_{case}_day_{day}.csv')
 
@@ -275,7 +274,6 @@ def load_competition_data(day, case):
 
 
 def get_competition_preds(day,case,get_x_sequences,allocate_x_batch,input_size,pred_seq_len,net,save):
-    data_loc = '/Users/simon/Documents/DTU/9. semester/deep learning/data'
     file = os.path.join(data_loc,'competition','predictions',f'Competition_case_{case}_day_{day}_predictions.csv')
     x_comp,x_comp_time = load_competition_data(day, case)
     comp_pred_idx = list(range(x_comp.shape[0]-96,x_comp.shape[0]))

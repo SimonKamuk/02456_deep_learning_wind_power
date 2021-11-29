@@ -114,7 +114,7 @@ else:
     raise(Exception('unrecognized loss function'))
 
 optim_params = {'lr': 3e-3, 'weight_decay': weight_decay}
-train_loss, valid_loss = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
+train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
 valid_loss[0] = np.sqrt(valid_loss[0])
 
 outfile = os.path.join('training results',f'ffnn_{"_".join(sys.argv[1:]).replace("=","_")}')
