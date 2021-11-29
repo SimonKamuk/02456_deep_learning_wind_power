@@ -12,6 +12,7 @@ import os
 import torch
 import torch.optim as optim
 import datetime
+import torch.nn as nn
 
 
 def accuracy_rate(P_P, P_M, Cap):
@@ -139,7 +140,21 @@ def allocate_x_batch_rnn(batch_size, input_size, pred_seq_len):
 def allocate_x_batch_cnn(batch_size, input_size, pred_seq_len):
     return torch.zeros(batch_size, input_size, pred_seq_len)
 
-def train(nn_type, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, valid_metrics):
+def train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case):
+    q=0.3
+    def quantile_score_metric(y_pred, y): 
+        return quantile_score(y,y_pred,q)
+    def accuracy_rate_metric(y_pred, y): 
+        return accuracy_rate(y*capacity(case),y_pred*capacity(case),capacity(case))
+    def mseloss(*args): 
+        return nn.MSELoss()(*args)
+    def maeloss(*args):
+        return nn.L1Loss()(*args)
+    
+    valid_metrics = [mseloss, maeloss, quantile_score_metric, accuracy_rate_metric]
+    
+    
+    
     if nn_type.lower() == 'rnn':
         x_batch = allocate_x_batch_rnn(batch_size, x.shape[1], pred_seq_len)
         x_sequences_fun = get_x_sequences_rnn
@@ -150,7 +165,7 @@ def train(nn_type, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, idx
         x_batch = allocate_x_batch_cnn(batch_size, x.shape[1], pred_seq_len)
         x_sequences_fun = get_x_sequences_cnn
     
-    optimizer = optim.Adam(net.parameters())
+    
     fold = 0
     valid_idx, train_idx = get_k_fold_cv_idx(fold, good_idx, k_fold_size)
     
@@ -160,52 +175,60 @@ def train(nn_type, x, y, net, num_epochs, batch_size, good_idx, k_fold_size, idx
     num_batches_valid = num_samples_valid // batch_size
     
     # setting up lists for handling loss/accuracy
-    train_loss = np.zeros(num_epochs)
+    train_loss = np.zeros((num_epochs, k_fold_size))
     
     num_metrics = len(valid_metrics)
-    valid_loss = np.zeros((num_metrics, num_epochs))
+    valid_loss = np.zeros((num_metrics, num_epochs, k_fold_size))
     
-    for epoch in range(num_epochs):
-        ## Training
-        # Forward -> Backprob -> Update params
-        net.train()
-        cur_loss = 0
-        for i in range(num_batches_train):
-            optimizer.zero_grad()
-            slce = get_slice(i, batch_size)
-            
-            x_batch = x_sequences_fun(train_idx[slce], x_batch, idx_offset, pred_seq_len, x)
-            
-            output = net(x_batch)
-            
-            # compute gradients given loss
-            batch_loss = loss(output, y[train_idx[slce]])
-            batch_loss.backward()
-            optimizer.step()
-            
-            cur_loss += batch_loss   
-        train_loss[epoch] = cur_loss.detach().numpy() / num_batches_train
+    for fold in range(k_fold_size):
+        net=Net()
+        optimizer = optim.Adam(net.parameters(), lr=optim_params['lr'], weight_decay=optim_params['weight_decay'])
+        valid_idx, train_idx = get_k_fold_cv_idx(fold, good_idx, k_fold_size)
     
-        ## Validation
-        net.eval()
-        cur_loss = np.zeros(num_metrics)
-        for i in range(num_batches_valid):
-            slce = get_slice(i, batch_size)
-            
-            x_batch = x_sequences_fun(valid_idx[slce], x_batch, idx_offset, pred_seq_len, x)
-            output = net(x_batch)
-            
-            for metric in range(num_metrics):
-                cur_loss[metric] += valid_metrics[metric](output.detach(), y[valid_idx[slce]].detach())
-            
-        for metric in range(num_metrics):
-            valid_loss[metric, epoch] = cur_loss[metric] / num_batches_valid
-    
-    
+        for epoch in range(num_epochs):
+            ## Training
+            # Forward -> Backprob -> Update params
+            net.train()
+            cur_loss = 0
+            for i in range(num_batches_train):
+                optimizer.zero_grad()
+                slce = get_slice(i, batch_size)
+                
+                x_batch = x_sequences_fun(train_idx[slce], x_batch, idx_offset, pred_seq_len, x)
+                
+                output = net(x_batch)
+                
+                # compute gradients given loss
+                batch_loss = loss(output, y[train_idx[slce]])
+                batch_loss.backward()
+                optimizer.step()
+                
+                cur_loss += batch_loss   
+            train_loss[epoch, fold] = cur_loss.detach().numpy() / num_batches_train
         
-        if epoch % (num_epochs//10) == 0:
-            print(f'Epoch {epoch:2d} : Training loss: {train_loss[epoch]:.4f}, \nValidation metrics:', *[f'\n{valid_metrics[i].__name__} {valid_loss[i, epoch]:.4f}' for i in range(num_metrics)], '\n')
+            ## Validation
+            net.eval()
+            cur_loss = np.zeros(num_metrics)
+            for i in range(num_batches_valid):
+                slce = get_slice(i, batch_size)
+                
+                x_batch = x_sequences_fun(valid_idx[slce], x_batch, idx_offset, pred_seq_len, x)
+                output = net(x_batch)
+                
+                for metric in range(num_metrics):
+                    cur_loss[metric] += valid_metrics[metric](output.detach(), y[valid_idx[slce]].detach())
+                
+            for metric in range(num_metrics):
+                valid_loss[metric, epoch, fold] = cur_loss[metric] / num_batches_valid
+        
+        
             
+            
+            print(f'Epoch: {epoch}')
+        
+        print(f'Fold {fold}: Training loss: {train_loss[epoch, fold]:.4f}, \nValidation metrics:', *[f'\n{valid_metrics[i].__name__} {valid_loss[i, epoch, fold]:.4f}' for i in range(num_metrics)], '\n')
+        
+        
     return train_loss, valid_loss
 
 
@@ -258,7 +281,11 @@ def get_competition_preds(day,case,get_x_sequences,allocate_x_batch,input_size,p
     comp_pred_idx = list(range(x_comp.shape[0]-96,x_comp.shape[0]))
     x_batch = allocate_x_batch(len(comp_pred_idx), input_size, pred_seq_len)
     predictions = net(get_x_sequences(comp_pred_idx, x_batch, 0, pred_seq_len, x_comp)).detach().numpy()
+    predictions *= capacity(case)
     if save:
         np.savetxt(file,predictions)
     return predictions
+
+
+
             
