@@ -40,13 +40,16 @@ hidden_size = args.hidden_size
 pred_seq_len = args.pred_seq_len
 loss = args.loss
 weight_decay = args.weight_decay
-drop_p = args.dropout 
+drop_p = args.dropout
 case = args.case
 
 
+outfile = os.path.join('training results',f'ffnn_{"_".join(sys.argv[1:]).replace("=","_")}')
+if os.path.exists(outfile):
+    print(f'File {outfile} already exists. Exits.')
+    sys.exit()
 
 
-args=parser.parse_args()
 
 
 
@@ -71,8 +74,8 @@ out_size = 1
 class Net(nn.Module):
 
     def __init__(self):
-        super(Net, self).__init__()  
-        
+        super(Net, self).__init__()
+
         self.input_linear = nn.Linear(in_features=input_size,
                                       out_features=hidden_size,
                                       bias=True)
@@ -84,7 +87,7 @@ class Net(nn.Module):
             self.hidden_list.append(nn.Linear(in_features=hidden_size,
                                               out_features=hidden_size,
                                               bias=True))
-        
+
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(p=drop_p)
 
@@ -97,7 +100,7 @@ class Net(nn.Module):
             x = self.dropout(x)
             x = self.act(x)
         x = self.output_linear(x)
-        
+
         return x
 
 
@@ -117,6 +120,4 @@ optim_params = {'lr': 3e-3, 'weight_decay': weight_decay}
 train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
 valid_loss[0] = np.sqrt(valid_loss[0])
 
-outfile = os.path.join('training results',f'ffnn_{"_".join(sys.argv[1:]).replace("=","_")}')
 np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)
-

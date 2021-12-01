@@ -100,14 +100,18 @@ def get_stacked_cv_idx(k, good_idx, k_fold_size):
 
 
 def get_k_fold_cv_idx(k, good_idx, k_fold_size):
+    
     num_good = len(good_idx)
     good_idx = good_idx.copy()
     np.random.shuffle(good_idx)
     in_valid_bool = np.zeros(num_good, dtype=bool)
     in_train_bool = np.zeros(num_good, dtype=bool)
     
-    in_valid_bool[k*num_good//k_fold_size : (k+1)*num_good//k_fold_size] = 1
-    in_train_bool = np.logical_not(in_valid_bool)
+    if k_fold_size == 1:
+        in_train_bool.fill(1)
+    else:
+        in_valid_bool[k*num_good//k_fold_size : (k+1)*num_good//k_fold_size] = 1
+        in_train_bool = np.logical_not(in_valid_bool)
     
     valid_idx = good_idx[in_valid_bool]
     train_idx = good_idx[in_train_bool]

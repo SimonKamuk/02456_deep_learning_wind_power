@@ -40,7 +40,7 @@ hidden_size = args.hidden_size
 pred_seq_len = args.pred_seq_len
 loss = args.loss
 weight_decay = args.weight_decay
-drop_p = args.dropout 
+drop_p = args.dropout
 case = args.case
 
 
@@ -71,8 +71,8 @@ out_size = 1
 class Net(nn.Module):
 
     def __init__(self):
-        super(Net, self).__init__()  
-        
+        super(Net, self).__init__()
+
         self.input_linear = nn.Linear(in_features=input_size,
                                       out_features=hidden_size,
                                       bias=True)
@@ -84,7 +84,7 @@ class Net(nn.Module):
             self.hidden_list.append(nn.Linear(in_features=hidden_size,
                                               out_features=hidden_size,
                                               bias=True))
-        
+
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(p=drop_p)
 
@@ -97,7 +97,7 @@ class Net(nn.Module):
             x = self.dropout(x)
             x = self.act(x)
         x = self.output_linear(x)
-        
+
         return x
 
 
@@ -119,4 +119,3 @@ valid_loss[0] = np.sqrt(valid_loss[0])
 
 outfile = os.path.join('training results',f'ffnn_{"_".join(sys.argv[1:]).replace("=","_")}')
 np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)
-

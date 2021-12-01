@@ -8,9 +8,9 @@
 ##BSUB -q hpc
 
 ##Navn på job
-#BSUB -J ffnn_sensitivity
+#BSUB -J cnn_sensitivity
 ##Output fil
-#BSUB -o output/ffnn_sensitivity-%J.out
+#BSUB -o output/cnn_sensitivity-%J.out
 ##Antal kerner
 #BSUB -n 4
 ##Om kernerne må være på forskellige computere
@@ -25,6 +25,9 @@
 #BSUB -N
 
 module purge
+module load python3/3.6.2
+module load cuda/8.0
+module load cudnn/v7.0-prod-cuda8
 
 for num_hidden in 1 5 10 15 20
 do

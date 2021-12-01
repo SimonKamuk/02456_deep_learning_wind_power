@@ -41,15 +41,14 @@ hidden_size = args.hidden_size
 pred_seq_len = args.pred_seq_len
 loss = args.loss
 weight_decay = args.weight_decay
-drop_p = args.dropout 
+drop_p = args.dropout
 rnn_type = args.rnn_type
 case = args.case
 
-
-
-
-
-args=parser.parse_args()
+outfile = os.path.join('training results',f'rnn_{"_".join(sys.argv).replace("=","_")}')
+if os.path.exists(outfile):
+    print(f'File {outfile} already exists. Exits.')
+    sys.exit()
 
 
 
@@ -74,9 +73,9 @@ out_size = 1
 class Net(nn.Module):
 
     def __init__(self):
-        super(Net, self).__init__()  
-        
-        
+        super(Net, self).__init__()
+
+
         if rnn_type.lower()=='lstm':
             self.rnn_layers = nn.LSTM(input_size=num_channels,
                                   hidden_size=hidden_size,
@@ -93,21 +92,21 @@ class Net(nn.Module):
                                  dropout=drop_p)
         else:
             raise(Exception('unknown rnn type'))
-            
+
         self.l_out = nn.Linear(in_features=pred_seq_len * hidden_size,
                                out_features=out_size,
                                bias=True)
-        
+
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(p=drop_p)
-        
-        
+
+
     def forward(self, x):
         #x, (h, c) = self.lstm(x)
         x = self.rnn_layers(x)[0]
         x = x.reshape(-1, pred_seq_len * hidden_size)
         x = self.dropout(x)
-        x = self.act(x)  
+        x = self.act(x)
         x = self.l_out(x)
         return x
 
@@ -129,6 +128,4 @@ optim_params = {'lr': 3e-3, 'weight_decay': weight_decay}
 train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
 valid_loss[0] = np.sqrt(valid_loss[0])
 
-outfile = os.path.join('training results',f'rnn_{"_".join(sys.argv).replace("=","_")}')
 np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)
-

@@ -41,13 +41,13 @@ pred_seq_len = args.pred_seq_len
 kernel_size = args.kernel_size
 loss = args.loss
 weight_decay = args.weight_decay
-drop_p = args.dropout 
+drop_p = args.dropout
 case = args.case
 
-
-
-
-args=parser.parse_args()
+outfile = os.path.join('training results',f'cnn_{"_".join(sys.argv).replace("=","_")}')
+if os.path.exists(outfile):
+    print(f'File {outfile} already exists. Exits.')
+    sys.exit()
 
 
 
@@ -77,40 +77,40 @@ conv_out_seq = round((pred_seq_len + 2*padding - kernel_size) / stride + 1)
 class Net(nn.Module):
 
     def __init__(self):
-        super(Net, self).__init__()  
-        
-        self.conv_in = nn.Conv1d(in_channels = input_size, 
-                              out_channels = num_channels, 
-                              kernel_size = kernel_size, 
-                              stride=stride, 
+        super(Net, self).__init__()
+
+        self.conv_in = nn.Conv1d(in_channels = input_size,
+                              out_channels = num_channels,
+                              kernel_size = kernel_size,
+                              stride=stride,
                               padding=padding,
                               groups = input_size)
         self.hidden_list=[]
         for i in range(num_hidden):
-            self.hidden_list.append(nn.Conv1d(in_channels = num_channels, 
-                                              out_channels = num_channels, 
-                                              kernel_size = kernel_size, 
-                                              stride=stride, 
+            self.hidden_list.append(nn.Conv1d(in_channels = num_channels,
+                                              out_channels = num_channels,
+                                              kernel_size = kernel_size,
+                                              stride=stride,
                                               padding=padding,
                                               groups = input_size))
         self.l_out = nn.Linear(in_features=conv_out_seq * num_channels,
                                out_features=out_size,
                                bias=True)
-        
+
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(p=drop_p)
-        
-        
+
+
     def forward(self, x):
         x = self.conv_in(x)
         for hidden_layer in self.hidden_list:
             x = hidden_layer(x)
             x = self.dropout(x)
             x = self.act(x)
-        
+
         x = x.reshape(-1, conv_out_seq * num_channels)
         x = self.dropout(x)
-        x = self.act(x)  
+        x = self.act(x)
         x = self.l_out(x)
         return x
 
@@ -131,6 +131,5 @@ optim_params = {'lr': 3e-3, 'weight_decay': weight_decay}
 train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
 valid_loss[0] = np.sqrt(valid_loss[0])
 
-outfile = os.path.join('training results',f'cnn_{"_".join(sys.argv).replace("=","_")}')
-np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)
 
+np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)

@@ -25,6 +25,9 @@
 #BSUB -N
 
 module purge
+module load python3/3.6.2
+module load cuda/8.0
+module load cudnn/v7.0-prod-cuda8
 
 for num_hidden in 1 5 10 15 20
 do
