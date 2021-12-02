@@ -45,8 +45,11 @@ drop_p = args.dropout
 rnn_type = args.rnn_type
 case = args.case
 
-outfile = os.path.join('training results',f'rnn_{"_".join(sys.argv).replace("=","_")}')
-if os.path.exists(outfile):
+assert torch.cuda.is_available()
+
+outfolder = 'training results'
+outfile = f'rnn_{"_".join(sys.argv[1:]).replace("=","_")}.npz'.lower()
+if outfile in os.listdir(outfolder):
     print(f'File {outfile} already exists. Exits.')
     sys.exit()
 
@@ -128,4 +131,4 @@ optim_params = {'lr': 3e-3, 'weight_decay': weight_decay}
 train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
 valid_loss[0] = np.sqrt(valid_loss[0])
 
-np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)
+np.savez(os.path.join(outfolder, outfile), train_loss=train_loss, valid_loss=valid_loss)

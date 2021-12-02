@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+        #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Mon Nov 29 11:03:46 2021
@@ -43,9 +43,11 @@ weight_decay = args.weight_decay
 drop_p = args.dropout
 case = args.case
 
+assert torch.cuda.is_available()
 
-outfile = os.path.join('training results',f'ffnn_{"_".join(sys.argv[1:]).replace("=","_")}')
-if os.path.exists(outfile):
+outfolder = 'training results'
+outfile = f'ffnn_{"_".join(sys.argv[1:]).replace("=","_")}.npz'.lower()
+if outfile in os.listdir(outfolder):
     print(f'File {outfile} already exists. Exits.')
     sys.exit()
 
@@ -82,7 +84,7 @@ class Net(nn.Module):
         self.output_linear = nn.Linear(in_features=hidden_size,
                                        out_features=out_size,
                                        bias=True)
-        self.hidden_list = []
+        self.hidden_list = nn.ModuleList()
         for i in range(num_hidden):
             self.hidden_list.append(nn.Linear(in_features=hidden_size,
                                               out_features=hidden_size,
@@ -120,4 +122,4 @@ optim_params = {'lr': 3e-3, 'weight_decay': weight_decay}
 train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
 valid_loss[0] = np.sqrt(valid_loss[0])
 
-np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)
+np.savez(os.path.join(outfolder, outfile), train_loss=train_loss, valid_loss=valid_loss)

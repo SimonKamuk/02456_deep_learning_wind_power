@@ -44,8 +44,11 @@ weight_decay = args.weight_decay
 drop_p = args.dropout
 case = args.case
 
-outfile = os.path.join('training results',f'cnn_{"_".join(sys.argv).replace("=","_")}')
-if os.path.exists(outfile):
+assert torch.cuda.is_available()
+
+outfolder = 'training results'
+outfile = f'cnn_{"_".join(sys.argv[1:]).replace("=","_")}.npz'.lower()
+if outfile in os.listdir(outfolder):
     print(f'File {outfile} already exists. Exits.')
     sys.exit()
 
@@ -85,7 +88,7 @@ class Net(nn.Module):
                               stride=stride,
                               padding=padding,
                               groups = input_size)
-        self.hidden_list=[]
+        self.hidden_list=nn.ModuleList()
         for i in range(num_hidden):
             self.hidden_list.append(nn.Conv1d(in_channels = num_channels,
                                               out_channels = num_channels,
@@ -132,4 +135,4 @@ train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs
 valid_loss[0] = np.sqrt(valid_loss[0])
 
 
-np.savez(outfile, train_loss=train_loss, valid_loss=valid_loss)
+np.savez(os.path.join(outfolder, outfile), train_loss=train_loss, valid_loss=valid_loss)
