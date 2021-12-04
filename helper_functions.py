@@ -106,8 +106,11 @@ def get_k_fold_cv_idx(k, good_idx, k_fold_size):
     in_valid_bool = np.zeros(num_good, dtype=bool)
     in_train_bool = np.zeros(num_good, dtype=bool)
 
-    in_valid_bool[k*num_good//k_fold_size : (k+1)*num_good//k_fold_size] = 1
-    in_train_bool = np.logical_not(in_valid_bool)
+    if k_fold_size == 1:
+        in_train_bool.fill(1)
+    else:
+        in_valid_bool[k*num_good//k_fold_size : (k+1)*num_good//k_fold_size] = 1
+        in_train_bool = np.logical_not(in_valid_bool)
 
     valid_idx = good_idx[in_valid_bool]
     train_idx = good_idx[in_train_bool]
@@ -280,11 +283,19 @@ def load_competition_data(day, case):
 
 def get_competition_preds(day,case,get_x_sequences,allocate_x_batch,input_size,pred_seq_len,net,save):
     file = os.path.join(data_loc,'competition','predictions',f'Competition_case_{case}_day_{day}_predictions.csv')
+
+    x_comp_prev_prev,x_comp_time_prev_prev = load_competition_data(day-1, case)
+    x_comp_prev,x_comp_time_prev = load_competition_data(day-1, case)
     x_comp,x_comp_time = load_competition_data(day, case)
+
+    x_comp = torch.cat((x_comp_prev_prev,x_comp_prev[-96:],x_comp[-96:]),dim=0)
+    x_comp_time = pd.concat((x_comp_time_prev[-96:],x_comp_time[-96:]),axis=0)
+    assert x_comp_time.diff().min() == x_comp_time.diff().max()
     comp_pred_idx = list(range(x_comp.shape[0]-96,x_comp.shape[0]))
     x_batch = allocate_x_batch(len(comp_pred_idx), input_size, pred_seq_len)
     predictions = net(get_x_sequences(comp_pred_idx, x_batch, 0, pred_seq_len, x_comp)).detach().to('cpu').numpy()
-    predictions *= capacity(case)
+    predictions = predictions * capacity(case)
+    #predictions = np.clip(predictions,  0, capacity(case)) 
     if save:
         np.savetxt(file,predictions)
     return predictions
