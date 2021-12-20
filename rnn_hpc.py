@@ -32,8 +32,9 @@ parser.add_argument('--weight_decay', help='weight_decay, float',type=float)
 parser.add_argument('--dropout', help='dropout, float',type=float)
 parser.add_argument('--rnn_type', help='rnn_type, lstm or gru, float',type=str)
 parser.add_argument('--case', help='case, int',type=int)
+parser.add_argument('--drop_cols', help='dataframe columns to drop',type=str, default='')
 
-# args = parser.parse_args("--num_hidden=2 --hidden_size=50 --pred_seq_len=25 --loss=MSE --weight_decay=0.01 --dropout=0.1 --rnn_type=LSTM --case=1".split())
+# args = parser.parse_args("--num_hidden=2 --hidden_size=50 --pred_seq_len=25 --loss=MSE --weight_decay=0.01 --dropout=0.1 --rnn_type=LSTM --case=1 --drop_cols=power_curve".split())
 args = parser.parse_args()
 
 num_hidden = args.num_hidden
@@ -44,8 +45,9 @@ weight_decay = args.weight_decay
 drop_p = args.dropout
 rnn_type = args.rnn_type
 case = args.case
+drop_cols = args.drop_cols
 
-assert torch.cuda.is_available()
+#assert torch.cuda.is_available()
 
 outfolder = 'training results'
 outfile = f'rnn_{"_".join(sys.argv[1:]).replace("=","_")}.npz'.lower()
@@ -62,7 +64,16 @@ get_x_sequences = get_x_sequences_rnn
 
 np.random.seed(2021)
 
-x,x_time,y,y_time,time_dif,idx_offset = load_data(case)
+
+
+cols_to_drop = []
+drop_col_name_dict={'power_curve':('Speed_50m_power_curve','Speed_100m_power_curve'), 'cubed':('Speed_50m_cubed','Speed_100m_cubed'),'season':('season_cos','season_sin'),'time':('time_day_cos','time_day_sin')}
+for substring in drop_col_name_dict.keys():
+    if substring in drop_cols.lower():
+        cols_to_drop.extend(drop_col_name_dict[substring])
+
+
+x,x_time,y,y_time,time_dif,idx_offset = load_data(case, cols_to_drop)
 
 # Index offset between start and end of training data for one single prediction
 # i.e. number of quarters of an hour we wish to train on for each sample

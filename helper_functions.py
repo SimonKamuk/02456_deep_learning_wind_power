@@ -24,7 +24,7 @@ def quantile_score(y, y_pred, q):
     return torch.mean(torch.max(q * (y-y_pred), (1-q) * (y_pred-y)))
 
 
-def load_data(case):
+def load_data(case, cols_to_drop=[]):
 
     df_all = []
 
@@ -36,12 +36,15 @@ def load_data(case):
             continue
         df = pd.read_csv(path)
         df.name = name
-
+        
         for col_name in df.columns:
             if col_name != 'Date_Time':
                 df[col_name]=df[col_name].astype('float64')
             else:
                 df['Date_Time'] = pd.to_datetime(df['Date_Time'])
+
+
+        df.drop(columns=cols_to_drop)
 
         df_all.append(df)
 
@@ -86,7 +89,7 @@ def get_slice(batch_idx, batch_size):
 def get_stacked_cv_idx(k, good_idx, k_fold_size):
     num_good = len(good_idx)
     good_idx = good_idx.copy()
-    np.random.shuffle(good_idx)
+
     in_valid_bool = np.zeros(num_good, dtype=bool)
     in_train_bool = np.zeros(num_good, dtype=bool)
 
@@ -95,14 +98,15 @@ def get_stacked_cv_idx(k, good_idx, k_fold_size):
 
     valid_idx = good_idx[in_valid_bool]
     train_idx = good_idx[in_train_bool]
-
+    np.random.shuffle(valid_idx)
+    np.random.shuffle(train_idx)
     return valid_idx, train_idx
 
 
 def get_k_fold_cv_idx(k, good_idx, k_fold_size):
     num_good = len(good_idx)
     good_idx = good_idx.copy()
-    np.random.shuffle(good_idx)
+
     in_valid_bool = np.zeros(num_good, dtype=bool)
     in_train_bool = np.zeros(num_good, dtype=bool)
 
@@ -114,7 +118,8 @@ def get_k_fold_cv_idx(k, good_idx, k_fold_size):
 
     valid_idx = good_idx[in_valid_bool]
     train_idx = good_idx[in_train_bool]
-
+    np.random.shuffle(valid_idx)
+    np.random.shuffle(train_idx)
     return valid_idx, train_idx
 
 
@@ -295,7 +300,7 @@ def get_competition_preds(day,case,get_x_sequences,allocate_x_batch,input_size,p
     x_batch = allocate_x_batch(len(comp_pred_idx), input_size, pred_seq_len)
     predictions = net(get_x_sequences(comp_pred_idx, x_batch, 0, pred_seq_len, x_comp)).detach().to('cpu').numpy()
     predictions = predictions * capacity(case)
-    #predictions = np.clip(predictions,  0, capacity(case)) 
+    predictions = np.clip(predictions,  0, capacity(case))
     if save:
         np.savetxt(file,predictions)
     return predictions
