@@ -67,7 +67,7 @@ x,x_time,y,y_time,time_dif,idx_offset = load_data(case)
 
 # Index offset between start and end of training data for one single prediction
 # i.e. number of quarters of an hour we wish to train on for each sample
-good_idx = get_good_idx(x,y,idx_offset,pred_seq_len)
+good_idx = get_good_idx(x,y,idx_offset,pred_seq_len)[:-20000]
 
 input_size = x.shape[1]
 num_channels = input_size
@@ -117,7 +117,7 @@ class Net(nn.Module):
 
 # setting hyperparameters and gettings epoch sizes
 batch_size = 1000
-num_epochs = 1
+num_epochs = 80
 k_fold_size = 1
 
 if loss.lower() == 'mse':
@@ -127,11 +127,10 @@ elif loss.lower() == 'l1':
 else:
     raise(Exception('unrecognized loss function'))
 
-
 optim_params = {'lr': 3e-3, 'weight_decay': weight_decay}
 train_loss, valid_loss, net = train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_fold_size, idx_offset, pred_seq_len, loss, case)
 valid_loss[0] = np.sqrt(valid_loss[0])
 
 #np.savez(os.path.join(outfolder, outfile), train_loss=train_loss, valid_loss=valid_loss)
 with open(os.path.join(outfolder, outfile), 'wb') as outp:
-    pickle.dump(net, outp, pickle.HIGHEST_PROTOCOL)
+    pickle.dump(net.to(torch.device('cpu')), outp, pickle.HIGHEST_PROTOCOL)

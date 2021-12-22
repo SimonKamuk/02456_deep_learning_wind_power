@@ -126,7 +126,7 @@ class Net(nn.Module):
 
 
 # setting hyperparameters and gettings epoch sizes
-batch_size = 1000
+batch_size = 10000
 num_epochs = 50
 k_fold_size = 6
 

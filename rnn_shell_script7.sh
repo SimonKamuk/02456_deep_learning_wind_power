@@ -1,6 +1,6 @@
 #!/bin/bash
 ##Kør på gpu
-#BSUB -q gpuv100
+#BSUB -q gpuk80
 ##Antal gpuer vi vil bruge. Kommenter ud hvis cpu.
 #BSUB -gpu "num=1:mode=exclusive_process"
 
@@ -12,7 +12,7 @@
 ##Output fil
 #BSUB -o output/rnn_sensitivity-%J.out
 ##Antal kerner
-#BSUB -n 4
+#BSUB -n 1
 ##Om kernerne må være på forskellige computere
 #BSUB -R "span[hosts=1]"
 ##Ram pr kerne
@@ -37,15 +37,18 @@ do
 		do
 			for loss in mse
 			do
-				for weight_decay in 0
+				for weight_decay in 0.001
 				do
-					for dropout in 0
+					for dropout in 0.1
 					do
 						for case in 1 2 3
 						do
 							for rnn_type in gru lstm
 							do
-						  		python3 rnn_hpc.py --num_hidden=$num_hidden --hidden_size=$hidden_size --pred_seq_len=$pred_seq_len --loss=$loss --weight_decay=$weight_decay --dropout=$dropout --rnn_type=$rnn_type --case=$case
+								for drop_col in none
+								do
+									python3 rnn_hpc.py --num_hidden=$num_hidden --hidden_size=$hidden_size --pred_seq_len=$pred_seq_len --loss=$loss --weight_decay=$weight_decay --dropout=$dropout --rnn_type=$rnn_type --case=$case --drop_cols=$drop_col
+								done
 							done
 						done
 					done

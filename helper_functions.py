@@ -36,7 +36,7 @@ def load_data(case, cols_to_drop=[]):
             continue
         df = pd.read_csv(path)
         df.name = name
-        
+
         for col_name in df.columns:
             if col_name != 'Date_Time':
                 df[col_name]=df[col_name].astype('float64')
@@ -188,10 +188,13 @@ def train(nn_type, x, y, Net, optim_params, num_epochs, batch_size, good_idx, k_
     num_batches_valid = num_samples_valid // batch_size
 
     # setting up lists for handling loss/accuracy
-    train_loss = np.zeros((num_epochs, k_fold_size))
+    train_loss = np.zeros((max(1,num_epochs), k_fold_size))
 
     num_metrics = len(valid_metrics)
-    valid_loss = np.zeros((num_metrics, num_epochs, k_fold_size))
+    valid_loss = np.zeros((num_metrics, max(1,num_epochs), k_fold_size))
+
+    fold=0
+    epoch=0
 
     for fold in range(k_fold_size):
         net=Net().to(device)

@@ -1,6 +1,6 @@
 #!/bin/bash
 ##Kør på gpu
-#BSUB -q gpuv100
+#BSUB -q gpuk80
 ##Antal gpuer vi vil bruge. Kommenter ud hvis cpu.
 #BSUB -gpu "num=1:mode=exclusive_process"
 
@@ -12,11 +12,11 @@
 ##Output fil
 #BSUB -o output/rnn_sensitivity-%J.out
 ##Antal kerner
-#BSUB -n 4
+#BSUB -n 1
 ##Om kernerne må være på forskellige computere
 #BSUB -R "span[hosts=1]"
 ##Ram pr kerne
-#BSUB -R "rusage[mem=8GB]"
+#BSUB -R "rusage[mem=16GB]"
 ##Hvor lang tid må den køre hh:mm
 #BSUB -W 23:50
 ##Email når jobbet starter
@@ -29,7 +29,7 @@ module load python3/3.6.2
 module load cuda/8.0
 module load cudnn/v7.0-prod-cuda8
 
-for num_hidden in 1 3 5 8 12
+for num_hidden in 1 2 3 4 5 8 12
 do
 	for hidden_size in 70
 	do
@@ -37,15 +37,18 @@ do
 		do
 			for loss in mse
 			do
-				for weight_decay in 0
+				for weight_decay in 0.001
 				do
-					for dropout in 0
+					for dropout in 0.1
 					do
 						for case in 1 2 3
 						do
 							for rnn_type in gru
 							do
-							  python3 rnn_hpc.py --num_hidden=$num_hidden --hidden_size=$hidden_size --pred_seq_len=$pred_seq_len --loss=$loss --weight_decay=$weight_decay --dropout=$dropout --rnn_type=$rnn_type --case=$case
+								for drop_col in none
+								do
+							  		python3 rnn_hpc.py --num_hidden=$num_hidden --hidden_size=$hidden_size --pred_seq_len=$pred_seq_len --loss=$loss --weight_decay=$weight_decay --dropout=$dropout --rnn_type=$rnn_type --case=$case --drop_cols=$drop_col
+								done
 							done
 						done
 					done
